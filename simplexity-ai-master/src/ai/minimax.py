@@ -40,126 +40,141 @@ from typing import Tuple, List
 
         return best_movement'''
 
+def findEmptyCell(state: State):
+    for col in range(0, state.board.col, 1):
+        for row in range(0, state.board.row, 1):
+            if state.board[row, col].shape == ShapeConstant.BLANK:
+                return [row, col]
+    return None
+
+def createEmptyCells(state: State):
+    solusi = []
+
+    for col in range(0, state.board.col, 1):
+        for row in range(0, state.board.row, 1):
+            if state.board[row, col].shape == ShapeConstant.BLANK:
+                solusi.append([row, col])
+    return solusi
+
+def listMoves(state: State, n_player):
+    quota = state.players[n_player].quota
+    listMoves = []
+
+    for key, value in quota.items():
+        if (value == 0):
+            continue
+
+        for col in range(state.board.col):
+            listMoves.append((col, key))
+    return listMoves
+
+def checkRound(state: State, n_player: int):
+    if n_player == 0:
+        if (state.round % 2 == 1):
+            return True
+        else:
+            return False
+    else:
+        if (state.round % 2 == 0):
+            return True
+        else:
+            return False
+
 class MinimaxGroup40:
     def __init__(self):
         self.alpha = -math.inf
         self.beta = math.inf
 
-    def findEmptyCell(self, state: State):
-        for col in range(0, state.board.col, 1):
-            for row in range(state.board.row - 1, -1, -1):
-                if state.board[row, col].shape == ShapeConstant.BLANK:
-                    return [row, col]
-        return None
+    def minimax(self, turn: bool, state: State, depth: int, listCells: List[int], alpha: int, beta: int, goalPath: List[State] = []):
+        if (depth == 0 or is_win(state.board) == True or is_full(state.board) == True):
+            return goalPath, 0
+        else:
+            if (turn):
+                bestValue = -math.inf
+                bestPath = None
 
-    def listEmptyCells(self, state: State):
-        solusi = []
-        i = 0
+                print(listCells)
+                for cell in listCells:
+                    newState = deepcopy(state)
+                    posisi = place(newState, self.n_player, cell[1], cell[0])
 
-        currCell = findEmptyCell(state)
-        while (currCell != None):
-            solusi[i] = currCell
-            i += 1
-            currCell = findEmptyCell(state)
-        return solusi
+                    if posisi != -1:
+                        newPath = deepcopy(goalPath)
+                        newPath.append((cell, newState))
 
-    def find(self, state: State, n_player: int, thinking_time: float) -> Tuple[str, str]:
-        self.thinking_time = time() + thinking_time
-
-        if (is_win(state.board) == None and is_full(state.board) == False):
-            emptyCell = listEmptyCells(state)
-
-            if (n_player == self.config.player_choice):
-                bestValue = -999
-                
-                i = 0
-                while (i > len(emptyCell)):
-                    j = 0
-                    while (j > 1):
-                        # board = Board(config.row, config.col)
-                        stateX = state
-                        if (stateX.players[n_player].quota["X"] > 1):
-                            place(stateX, stateX.players[n_player], ShapeConstant.CROSS, emptyCell[i][1])
-                            valueX = find(stateX, n_player, thinking_time)
-
-                        stateO = state
-                        if (stateO.players[n_player].quota["O"] > 1):
-                            place(stateO, stateO.players[n_player], ShapeConstant.CIRCLE, emptyCell[i][1])
-                            valueO = find(stateO, n_player, thinking_time)
-
-                        if (state.players[n_player].shape == "X" and valueX >= valueO):
-                            value = valueX
-                            shape = "X"
-                        elif (state.players[n_player].shape == "O" and valueO >= valueX):
-                            value = valueO
-                            shape = "O"
-                        elif (valueO >= valueX):
-                            value = valueO
-                            shape = "O"
-                        else: # valueX >= valueO
-                            value = valueX
-                            shape = "X"
-
+                        path, value = self.minimax(
+                            not(turn), 
+                            newState,  
+                            depth-1, 
+                            listMoves(state, self.other_player), 
+                            self.alpha, 
+                            self.beta, 
+                            newPath
+                        )
+                        print(path, "!", value)
                         if (value > bestValue):
                             bestValue = value
-                            bestCell = emptyCell[i]
+                            bestPath = path
 
+                        if time() > self.thinking_time:
+                            return (bestPath, bestValue)
+
+                        print("alpha", alpha)
                         self.alpha = max(self.alpha, bestValue)
                         if (self.alpha >= self.beta):
                             break
 
-                        j += 1
-                    i += 1
-
-                best_movement = (bestCell[1], shape)
+                best_movement = (bestPath, bestValue)
                 return best_movement
 
             else: #(n_player != self.config.player_choice)
-                bestValue = 999
-                
-                i = 0
-                while (i > len(emptyCell)):
-                    j = 0
-                    while (j > 1):
-                        # board = Board(config.row, config.col)
-                        stateX = state
-                        if (stateX.players[n_player].quota["X"] > 1):
-                            place(stateX, stateX.players[n_player], ShapeConstant.CROSS, emptyCell[i][1])
-                            valueX = find(stateX, n_player, thinking_time)
+                bestValue = math.inf
+                bestPath = None
 
-                        stateO = state
-                        if (stateO.players[n_player].quota["O"] > 1):
-                            place(stateO, stateO.players[n_player], ShapeConstant.CIRCLE, emptyCell[i][1])
-                            valueO = find(stateO, n_player, thinking_time)
+                for cell in listCells:
+                    newState = deepcopy(state)
+                    posisi = place(newState, self.other_player, cell[1], cell[0])
 
-                        if (state.players[n_player].shape == "X" and valueX < valueO):
-                            value = valueX
-                            shape = "X"
-                        elif (state.players[n_player].shape == "O" and valueO < valueX):
-                            value = valueO
-                            shape = "O"
-                        elif (valueO < valueX):
-                            value = valueO
-                            shape = "O"
-                        else: # valueX < valueO
-                            value = valueX
-                            shape = "X"
-
+                    if posisi != -1:
+                        newPath = deepcopy(goalPath)
+                        newPath.append((cell, newState))
+                        
+                        path, value = self.minimax(
+                            not(turn), 
+                            newState, 
+                            depth-1, 
+                            listMoves(state, self.n_player), 
+                            self.alpha, 
+                            self.beta, 
+                            newPath
+                        )
                         if (value < bestValue):
                             bestValue = value
-                            bestCell = emptyCell[i]
+                            bestPath = path
+
+                        if time() > self.thinking_time:
+                            return (bestPath, bestValue)
 
                         self.beta = min(self.beta, bestValue)
                         if (self.alpha >= self.beta):
                             break
 
-                        j += 1
-                    i += 1
-
-                best_movement = (bestCell[1], shape)
+                best_movement = (bestPath, bestValue)
                 return best_movement
         
-        else: # game dalam terminal state
-            return (-1, -1)
+
+    def find(self, state: State, n_player: int, thinking_time: float) -> Tuple[str, str]:
+        self.thinking_time = time() + thinking_time
+        self.n_player = n_player
+        if n_player == 0:
+            self.other_player = 1
+        else:
+            self.other_player = 0
+
+        bestPath, bestValue = self.minimax(
+            True, state, 3, listMoves(state, self.n_player), -math.inf, math.inf
+        )
+
+        return bestPath[0][0]
 
 
