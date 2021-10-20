@@ -23,8 +23,10 @@ import math
 from copy import deepcopy
 from time import time
 
+from src import *
 from src.utility import *
 from src.model import State, Config
+from src.ai import *
 
 from typing import Tuple, List
 
@@ -40,60 +42,90 @@ from typing import Tuple, List
 
         return best_movement'''
 
-def findEmptyCell(state: State):
-    for col in range(0, state.board.col, 1):
-        for row in range(0, state.board.row, 1):
-            if state.board[row, col].shape == ShapeConstant.BLANK:
-                return [row, col]
-    return None
-
-def createEmptyCells(state: State):
-    solusi = []
-
-    for col in range(0, state.board.col, 1):
-        for row in range(0, state.board.row, 1):
-            if state.board[row, col].shape == ShapeConstant.BLANK:
-                solusi.append([row, col])
-    return solusi
-
-def listMoves(state: State, n_player):
-    quota = state.players[n_player].quota
-    listMoves = []
-
-    for key, value in quota.items():
-        if (value == 0):
-            continue
-
-        for col in range(state.board.col):
-            listMoves.append((col, key))
-    return listMoves
-
-def checkRound(state: State, n_player: int):
-    if n_player == 0:
-        if (state.round % 2 == 1):
-            return True
-        else:
-            return False
-    else:
-        if (state.round % 2 == 0):
-            return True
-        else:
-            return False
-
 class MinimaxGroup40:
     def __init__(self):
-        self.alpha = -math.inf
-        self.beta = math.inf
+        pass
 
-    def minimax(self, turn: bool, state: State, depth: int, listCells: List[int], alpha: int, beta: int, goalPath: List[State] = []):
+    def checkStreak(self, board: Board, row: int, col: int, shape: str, color: str, foundShape: int, foundColor: int, streakTuple: List[Tuple[int, int]]):
+        cell = board[row, col]
+        for i, j in streakTuple:
+            newrow = row + i
+            newcol = col + j
+
+            newfoundColor = 0
+            newfoundShape = 0
+            for _ in range(GameConstant.N_COMPONENT_STREAK - 1):
+                if is_out(board, newrow, newcol):
+                    break
+
+                if cell.shape == board[newrow, newcol].shape:
+                    newfoundShape += 1
+                if cell.color == board[newrow, newcol].color:
+                    newfoundColor += 1
+            foundShape += (newfoundShape ** 2)
+            foundColor += (newfoundColor ** 2)
+
+        return foundShape, foundColor
+
+    def count_streak(self, board: Board, shape: str, color: str, foundShape: int, foundColor: int):
+        streakTuple = [(-1, 0), (1, 0), (0, -1), (0, 1), (-1, -1), (-1, 1), (1, -1), (1, 1)]
+
+        for i in range(board.row):
+            for j in range(board.col):
+                countShape, countColor = self.checkStreak(board, i, j, shape, color, 0, 0, streakTuple)
+                foundShape += countShape
+                foundColor += countColor
+        return foundShape, foundColor
+    
+    def checkRound(state: State, n_player: int):
+        if n_player == 0:
+            if (state.round % 2 == 1):
+                return True
+            else:
+                return False
+        else:
+            if (state.round % 2 == 0):
+                return True
+            else:
+                return False
+
+    def getPoint(self, state: State, winner: Tuple[str, str], player: Player, enemy: Player):
+        if winner != None:
+            if winner[0] == player.shape and winner[1] == player.color:
+                return 100
+            else:
+                return -100
+
+        playerPoint = sum(self.count_streak(state.board, player.shape, player.color, 0, 0))
+        enemyPoint = sum(self.count_streak(state.board, enemy.shape, enemy.color, 0, 0))
+
+        score = playerPoint - enemyPoint
+        if score == 0:
+            score = random.uniform(0, 2)
+
+        return score
+
+    def listMoves(self, state: State, n_player):
+        quota = state.players[n_player].quota
+        listMoves = []
+
+        for key, value in quota.items():
+            if (value == 0):
+                continue
+
+            for col in range(state.board.col):
+                listMoves.append((col, key))
+        return listMoves
+
+    def minimax(self, turn: bool, state: State, depth: int, listCells: List[int], alpha: float, beta: float, goalPath: List[State] = []) -> float:
         if (depth == 0 or is_win(state.board) == True or is_full(state.board) == True):
-            return goalPath, 0
+            return goalPath, self.getPoint(state, is_win(state.board), state.players[self.n_player], state.players[self.other_player])
+
         else:
             if (turn):
-                bestValue = -math.inf
+                bestValue = float("-inf")
                 bestPath = None
 
-                print(listCells)
                 for cell in listCells:
                     newState = deepcopy(state)
                     posisi = place(newState, self.n_player, cell[1], cell[0])
@@ -106,12 +138,11 @@ class MinimaxGroup40:
                             not(turn), 
                             newState,  
                             depth-1, 
-                            listMoves(state, self.other_player), 
-                            self.alpha, 
-                            self.beta, 
-                            newPath
+                            self.listMoves(state, self.other_player), 
+                            alpha, 
+                            beta, 
+                            newPath,
                         )
-                        print(path, "!", value)
                         if (value > bestValue):
                             bestValue = value
                             bestPath = path
@@ -119,16 +150,15 @@ class MinimaxGroup40:
                         if time() > self.thinking_time:
                             return (bestPath, bestValue)
 
-                        print("alpha", alpha)
-                        self.alpha = max(self.alpha, bestValue)
-                        if (self.alpha >= self.beta):
+                        alpha = max(alpha, bestValue)
+                        if (alpha >= beta):
                             break
 
                 best_movement = (bestPath, bestValue)
                 return best_movement
 
             else: #(n_player != self.config.player_choice)
-                bestValue = math.inf
+                bestValue = float("inf")
                 bestPath = None
 
                 for cell in listCells:
@@ -143,10 +173,10 @@ class MinimaxGroup40:
                             not(turn), 
                             newState, 
                             depth-1, 
-                            listMoves(state, self.n_player), 
-                            self.alpha, 
-                            self.beta, 
-                            newPath
+                            self.listMoves(state, self.n_player), 
+                            alpha, 
+                            beta, 
+                            newPath,
                         )
                         if (value < bestValue):
                             bestValue = value
@@ -155,8 +185,8 @@ class MinimaxGroup40:
                         if time() > self.thinking_time:
                             return (bestPath, bestValue)
 
-                        self.beta = min(self.beta, bestValue)
-                        if (self.alpha >= self.beta):
+                        beta = min(beta, bestValue)
+                        if (alpha >= beta):
                             break
 
                 best_movement = (bestPath, bestValue)
@@ -172,7 +202,7 @@ class MinimaxGroup40:
             self.other_player = 0
 
         bestPath, bestValue = self.minimax(
-            True, state, 3, listMoves(state, self.n_player), -math.inf, math.inf
+            True, state, 3, self.listMoves(state, self.n_player), float("-inf"), float("inf")
         )
 
         return bestPath[0][0]
