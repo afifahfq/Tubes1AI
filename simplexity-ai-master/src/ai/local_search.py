@@ -123,10 +123,11 @@ def bestChoice(state:State,n_player: int):
 class LocalSearch:
     def __init__(self):
         pass
-
+    
     def find(self, state: State, n_player: int, thinking_time: float) -> Tuple[str, str]:
         self.thinking_time = time() + thinking_time
-
-        best_movement = bestChoice(state,n_player)
-
+        if(time()>self.thinking_time):
+            best_movement = (random.randint(0, state.board.col), random.choice([ShapeConstant.CROSS, ShapeConstant.CIRCLE]))
+        else :
+            best_movement = bestChoice(state,n_player)
         return best_movement
