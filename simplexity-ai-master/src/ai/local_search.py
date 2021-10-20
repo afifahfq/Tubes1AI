@@ -120,7 +120,7 @@ def bestChoice(state:State,n_player: int):
 
 
 
-class LocalSearch:
+class LocalSearchGroup40:
     def __init__(self):
         pass
     
